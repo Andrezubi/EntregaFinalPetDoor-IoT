@@ -4,19 +4,17 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <WiFiManager.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <SPI.h>
 #include <time.h>
-
+#include "TimedMotor.h"
 #include "RFID.h"
-#include "SmoothServo.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Network & AWS config
-// ─────────────────────────────────────────────────────────────────────────────
-const char* WIFI_SSID   = "Flia.zubieta_s";      
-const char* WIFI_PASS   = "Zubieta1234";         
+// ─────────────────────────────────────────────────────────────────────────────        
 const char* MQTT_BROKER = "a2z78sujrz3n3i-ats.iot.us-east-1.amazonaws.com"; 
 const int   MQTT_PORT   = 8883;
 const char* CLIENT_ID   = "pet_door_esp32";
@@ -113,23 +111,20 @@ M7AVOAZ/uS9gG0C5NW2sszMQ3HBLTFAzNcc5ERc9gmA8PKoLoYiCRU/0KT6C8bbo
 #define RFID_ENTRY_SS_PIN   5
 #define RFID_ENTRY_RST_PIN  4
 #define RFID_EXIT_SS_PIN    14
-#define RFID_EXIT_RST_PIN   15
-#define SERVO_PIN           13
- 
-// ─────────────────────────────────────────────────────────────────────────────
-// Door angle constants
-// ─────────────────────────────────────────────────────────────────────────────
-#define DOOR_ANGLE_CLOSED  0
-#define DOOR_ANGLE_OPEN    180
+#define RFID_EXIT_RST_PIN   13
+#define DOOR_IN1_PIN 32
+#define DOOR_IN2_PIN 33
+#define DOOR_ENA_PIN 25
+#define DOOR_SPEED 180
  
 // ─────────────────────────────────────────────────────────────────────────────
 // Hardware objects
 // ─────────────────────────────────────────────────────────────────────────────
 RFID rfidEntry(RFID_ENTRY_SS_PIN, RFID_ENTRY_RST_PIN, "entry");
 RFID rfidExit (RFID_EXIT_SS_PIN,  RFID_EXIT_RST_PIN,  "exit");
- 
-SmoothServo servo(SERVO_PIN, DOOR_ANGLE_CLOSED, /*stepDeg=*/2, /*intervalMs=*/15);
- 
+
+TimedMotor doorMotor(DOOR_IN1_PIN,DOOR_IN2_PIN,DOOR_ENA_PIN,DOOR_SPEED);
+  
 WiFiClientSecure wifiClient;
 PubSubClient     mqttClient(wifiClient);
  
@@ -145,47 +140,66 @@ bool          autoCloseArmed       = false;
 bool          needsReport          = false;
 bool          registerMode         = false;
 String        pendingCommandId     = "";
+
+
+String lastOpenedAt = "";
+String lastCommandAction = "open";
+String lastCommandId     = "";
  
 // ─────────────────────────────────────────────────────────────────────────────
 // Door helpers
 // ─────────────────────────────────────────────────────────────────────────────
  
-bool doorIsOpen()   { return servo.getCurrentAngle() >= DOOR_ANGLE_OPEN   && servo.isIdle(); }
-bool doorIsClosed() { return servo.getCurrentAngle() <= DOOR_ANGLE_CLOSED && servo.isIdle(); }
-bool doorIsMoving() { return servo.isMoving(); }
+bool doorIsOpen() {
+  return doorMotor.getState() == TimedMotor::OPEN;
+}
+
+bool doorIsClosed() {
+  return doorMotor.getState() == TimedMotor::CLOSED;
+}
+
+bool doorIsMoving() {
+  return doorMotor.isMoving();
+}
  
 const char* getDoorStateStr() {
-  if (servo.isMoving())
-    return (servo.getTargetAngle() >= DOOR_ANGLE_OPEN) ? "opening" : "closing";
-  if (doorIsOpen())   return "open";
-  if (doorIsClosed()) return "closed";
-  return "unknown";
+
+  switch (doorMotor.getState()) {
+
+    case TimedMotor::OPEN:
+      return "open";
+
+    case TimedMotor::CLOSED:
+      return "closed";
+
+    case TimedMotor::OPENING:
+      return "opening";
+
+    case TimedMotor::CLOSING:
+      return "closing";
+
+    default:
+      return "unknown";
+  }
 }
  
 const char* getMotorStateStr() {
-  return servo.isMoving() ? "running" : "idle";
+  return doorMotor.isMoving() ? "running" : "idle";
 }
 void commandOpen() {
-
   if (doorIsOpen()) {
     Serial.println("[DOOR] Already open, ignoring.");
     return;
   }
-
   Serial.println("[DOOR] → OPEN");
-
-  servo.moveTo(DOOR_ANGLE_OPEN);
-
+  doorMotor.open(800);
   openedAt = millis();
-
-  // SOLO activar auto close en modo auto
+  lastOpenedAt = getISOTimestamp();  // ← add this
   if (currentMode == "auto") {
     autoCloseArmed = (openDurationSec > 0);
-  }
-  else {
+  } else {
     autoCloseArmed = false;
   }
-
   needsReport = true;
 }
 
@@ -193,7 +207,7 @@ void commandOpen() {
 void commandClose() {
   if (doorIsClosed()) { Serial.println("[DOOR] Already closed."); return; }
   Serial.println("[DOOR] → CLOSE");
-  servo.moveTo(DOOR_ANGLE_CLOSED);
+  doorMotor.close(800);
   autoCloseArmed = false;
   needsReport    = true;
 }
@@ -240,20 +254,29 @@ void publishReport(const String& tag = "", const String& reader = "") {
 
   JsonObject state = doc["state"].to<JsonObject>();
 
-  JsonObject desired = state["desired"].to<JsonObject>();
-  desired["door_command"] = nullptr;
 
   JsonObject reported = state["reported"].to<JsonObject>();
 
+  JsonObject reportedCmd = reported["door_command"].to<JsonObject>();
+
+reportedCmd["action"]     = lastCommandAction;
+reportedCmd["request_id"] = pendingCommandId;
+
+  
   JsonObject config = reported["config"].to<JsonObject>();
   config["mode"] = currentMode;
   config["open_duration_sec"] = openDurationSec;
   config["register_duration_sec"] = registerDurationSec;
 
   JsonObject door = reported["door"].to<JsonObject>();
-  door["state"] = getDoorStateStr();
-  door["motor_state"] = getMotorStateStr();
+  door["state"]           = getDoorStateStr();
+  door["motor_state"]     = getMotorStateStr();
   door["last_command_id"] = pendingCommandId;
+  if (lastOpenedAt.length() > 0) {
+    door["last_opened_at"] = lastOpenedAt;  // ← add this
+  }
+
+
   
 
   // reported.last_event — only update when a real tag read happened
@@ -328,8 +351,7 @@ void applyDelta(JsonObject delta) {
         // mode=closed: force door closed regardless of current position
         // commandClose guard is bypassed here so we always attempt the move
         autoCloseArmed = false;
-        Serial.println("[DOOR] -> CLOSE (mode=closed)");
-        servo.moveTo(DOOR_ANGLE_CLOSED);
+        commandClose();
         needsReport = true;
       } else if (currentMode == "auto" && doorIsOpen()) {
         // mode=auto: if door is already open, rearm the auto-close timer
@@ -365,25 +387,43 @@ void applyDelta(JsonObject delta) {
     JsonObject cmd    = delta["door_command"].as<JsonObject>();
     String     action = cmd["action"].as<String>();
     String     reqId  = cmd["request_id"].as<String>();
- 
-    // Avoid re-processing the same command
+
+    // A delta with no request_id is just an echo-back, ignore it
+  if (reqId.length() == 0 || reqId == "null") return;
+
+  // If action is missing from delta, reuse the last known action
+  // (AWS IoT omits fields that haven't changed from desired vs reported)
+  if (action.length() == 0 || action == "null") {
+    action = lastCommandAction;
+  }
+
+  // Still nothing to do
+  if (action.length() == 0) return;
+
     if (reqId != pendingCommandId) {
-      pendingCommandId = reqId;
+      pendingCommandId  = reqId;
+      lastCommandAction = action;
       Serial.print("[CMD] action=");
       Serial.print(action);
       Serial.print(" id=");
       Serial.println(reqId);
- 
+
       if (action == "open") {
         commandOpen();
-      } else if (action == "register") {
+      }
+      else if (action == "register") {
         registerMode      = true;
         registerStartedAt = millis();
+
         Serial.print("[REGISTER] Mode ON for ");
         Serial.print(registerDurationSec);
         Serial.println("s - waiting for tag...");
       }
+
       changed = true;
+
+
+
     }
   }
  
@@ -423,21 +463,36 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 // ─────────────────────────────────────────────────────────────────────────────
  
 void setupWiFi() {
-  Serial.print("[WIFI] Connecting to ");
-  Serial.println(WIFI_SSID);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
-  Serial.print("\n[WIFI] Connected. IP: ");
+
+  WiFiManager wm;
+
+  wm.setConfigPortalTimeout(180);   // portal active for 3 mins
+
+  bool connected = wm.autoConnect("PetDoor-Setup");
+
+  if (!connected) {
+    Serial.println("[WIFI] Failed. Restarting...");
+    ESP.restart();
+  }
+
+  Serial.println("[WIFI] Connected!");
+  Serial.print("[WIFI] IP: ");
   Serial.println(WiFi.localIP());
- 
+
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+
   Serial.print("[NTP] Syncing");
+
   struct tm ti;
   int attempts = 0;
+
   while (!getLocalTime(&ti) && attempts < 20) {
-    delay(500); Serial.print("."); attempts++;
+    delay(500);
+    Serial.print(".");
+    attempts++;
   }
-  Serial.println(attempts < 20 ? " OK" : "\n[NTP] Failed — TLS errors likely");
+
+  Serial.println(attempts < 20 ? " OK" : "\n[NTP Failed]");
 }
  
 void reconnect() {
@@ -457,6 +512,38 @@ void reconnect() {
     }
   }
 }
+
+void checkSerialCommands() {
+
+  if (!Serial.available())
+    return;
+
+  String cmd = Serial.readStringUntil('\n');
+
+  cmd.trim();
+  cmd.toLowerCase();
+
+  Serial.print("[SERIAL CMD] ");
+  Serial.println(cmd);
+
+  if (cmd == "resetwifi") {
+
+    Serial.println("[WIFI] Clearing saved credentials...");
+
+    WiFiManager wm;
+
+    wm.resetSettings();
+
+    wm.startConfigPortal("PetDoor-Setup");
+
+    delay(1000);
+
+    Serial.println("[WIFI] Credentials removed. Restarting...");
+
+    ESP.restart();
+  }
+}
+
  
 // ─────────────────────────────────────────────────────────────────────────────
 // setup()
@@ -481,7 +568,7 @@ void setup() {
   SPI.begin();
   rfidEntry.init();
   rfidExit.init();
-  servo.init();
+  doorMotor.begin();
  
   Serial.println("[SYS] Setup complete.");
 }
@@ -491,16 +578,32 @@ void setup() {
 // ─────────────────────────────────────────────────────────────────────────────
  
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) setupWiFi();
+  checkSerialCommands();
+  if (WiFi.status() != WL_CONNECTED) {
+
+    Serial.println("[WIFI] Lost connection");
+
+    WiFi.reconnect();
+
+    delay(5000);
+
+    if (WiFi.status() != WL_CONNECTED) {
+        setupWiFi();
+    }
+}
   if (!mqttClient.connected()) reconnect();
   mqttClient.loop();
  
-  // ── Servo smooth step ──────────────────────────────────────────────────────
-  bool servoArrived = servo.update();
-  if (servoArrived) {
-    Serial.print("[DOOR] Settled → ");
-    Serial.println(getDoorStateStr());
-    needsReport = true;
+  // ── motor update to stop movement  ──────────────────────────────────────────────────────
+  bool motorFinished = doorMotor.update();
+
+  if (motorFinished) {
+
+      Serial.print("[DOOR] Settled → ");
+
+      Serial.println(getDoorStateStr());
+
+      needsReport = true;
   }
  
   // ── RFID polling — entry reader ───────────────────────────────────────────
@@ -545,3 +648,6 @@ void loop() {
     publishReport();  // state-only report, no new event
   }
 }
+
+
+
