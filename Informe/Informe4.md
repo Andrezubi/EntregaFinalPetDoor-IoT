@@ -42,15 +42,15 @@ Mayo 2026
    - Obtener el ultimo tag registrado (GetLastTag) 
    - Obtener el estado de la puerta (GetDoorState)
    - Conformar el registro del ultimo Tag (ConfirmTagRegistrationIntent)
-- El sistema debe controlar el servomotor MG90S en función de los comandos anteriormente mencionados. 
-- El sistema debe permitir el movimiento del servomotor cuando una tarjeta autorizada sea detectada.
+- El sistema debe controlar el motor DC 12v to 24v QK1-0908 RN855613 en función de los comandos anteriormente mencionados. 
+- El sistema debe permitir el movimiento del motor cuando una tarjeta autorizada sea detectada.
 - El sistema debe negar el acceso cuando una tarjeta no autorizada sea detectada.
-El sistema debe permitir el control del servomotor mediante comandos a través de Alexa.
+El sistema debe permitir el control del motor mediante comandos a través de Alexa.
 El sistema debe permitir que Alexa registre y mande las siguientes categorías:
    - Estado de la puerta: si está abierta o cerrada
    - Estado del motor: si está en movimiento o si está parado 
-   - Información del sensor: si percibió algo, en qué momento percibió la mascota, que mascota percibió
-   - nombre de la mascota
+   - Información del sensor: si percibió algo, en qué momento percibió la mascota, que mascota percibió.
+   - Nombre de la mascota.
 - El sistema debe guardar datos en una Base de Datos (DynamoDB) cuando los sensores detecten un Tag.
 - El sistema debe guardar datos en DynamoDB las veces que se envio un comando de apertura, al Shadow del Objeto Inteligente.
 
@@ -174,24 +174,8 @@ Alexa responde:
 
 "Oliver fue registrado correctamente."
 ```
-### 2.5 Diseño de reportes (mockups) con información relevante para la toma de decisiones
 
-#### 1. Tráfico de uso de la puerta por día de la semana y hora del día
-![Diagrama](Imagenes/mockup_1.png)
-
-#### 2. Distribución de uso de la puerta por mascota
-![Diagrama](Imagenes/mockup_2.png)
-
-#### 3. Última hora de entrada registrada por día para una mascota
-![Diagrama](Imagenes/mockup_3.png)
-
-#### 4. Primera hora de salida registrada por día para una mascota
-![Diagrama](Imagenes/mockup_4.png)
-
-#### 5. Tiempo promedio que la mascota permaneció fuera de casa
-![Diagrama](Imagenes/mockup_5.png)
-
-### 2.6 Diseño Modelo de Datos 
+### 2.5 Diseño Modelo de Datos 
 
 - La tabla `devices` almacena todas las puertas inteligentes asociadas a un usuario.
 
@@ -201,7 +185,27 @@ Alexa responde:
 
 - La tabla `commands` almacena el historial de comandos enviados a la puerta inteligente, incluyendo comandos de apertura, cierre, registro de etiquetas, cambios de configuración y otras acciones ejecutadas por el sistema o mediante Alexa. 
 
-![Diagrama](Imagenes/diseño_modelo_datos.png)
+![Diagrama](Imagenes/diseño_modelo_datos.png) 
+
+### 2.6 Visualización Gráfica 
+#### 2.6.1 Tráfico de uso de la puerta por día de la semana y hora del día 
+![Diagrama](Imagenes/Grafico2.png) 
+
+#### 2.6.2 Distribución de uso de la puerta por mascota
+![Diagrama](Imagenes/Grafico3.png) 
+
+#### 2.6.3 Primera hora de salida registrada por día para una mascota
+![Diagrama](Imagenes/Grafico4.png) 
+
+#### 2.6.4 Última hora de entrada registrada por día para una mascota
+![Diagrama](Imagenes/Grafico5.png) 
+
+#### 2.6.5 Distribución de Accesos por Hora del Día
+![Diagrama](Imagenes/Grafico1.png) 
+
+#### 2.6.6 Indicadores Clave de Desempeño del Sistema
+![Diagrama](Imagenes/Grafico6.png) 
+
 
 # 3. Implementación
 
@@ -664,67 +668,38 @@ Resultados obtenidos:
 
 Esto demuestra que el sensor RFID-RC522 no está diseñado para manejar múltiples tarjetas simultáneamente en espacios reducidos, ya que se producen conflictos de lectura.
 
-## 4.6 Pruebas de tiempo de reacción del servomotor
+## 4.6 Prueba de comportamiento mecánico del motor DC
 
-Se realizaron pruebas para medir el tiempo requerido por el servomotor MG90S para realizar movimientos de 90°.
+Se evaluó la resistencia del motor DC frente a distintos materiales de interferencia.
 
-Se ejecutaron 10 mediciones consecutivas obteniendo los siguientes resultados:
+Los resultados muestran que el motor no puede ser detenido manualmente (dedos) debido a su alta velocidad y torque. Materiales como madera, vidrio, metal y cartón lograron detener el sistema en todos los casos, mientras que el plastoformo no lo detuvo, evidenciando que el motor puede atravesar materiales de baja densidad.
 
-- Tiempo promedio de giro de 90°: **1754.6 ms**
-- Tiempo mínimo registrado: **1746 ms**
-- Tiempo máximo registrado: **1759 ms**
+En general, el sistema presenta alta potencia mecánica con capacidad de superar interferencias ligeras, pero con limitaciones frente a materiales rígidos.
 
-Los resultados muestran que el servomotor presenta un comportamiento estable y consistente en todos los movimientos realizados.
 
-## 4.7 Prueba de precisión del servomotor
+## 4.7 Prueba de rendimiento en función del tiempo de activación
 
-Para evaluar la precisión del servomotor se realizaron mediciones físicas de posición en ángulos de 0° y 180°.
+Se evaluó la relación entre tiempo de activación y desplazamiento.
 
-Resultados obtenidos:
+Para 1 s se obtuvo un promedio de 18.81 ± 0.77, para 0.8 s un promedio de 15.57 ± 0.76, y para 0.5 s un promedio de 9.89 ± 1.01.
 
-### Medición en 0°
+Los resultados muestran una relación proporcional entre el tiempo de activación y el desplazamiento, con baja variabilidad en las mediciones.
 
-- Promedio: **1.02**
-- Desviación estándar: **0.079**
 
-### Medición en 180°
+## 4.8 Prueba de funcionamiento continuo del motor DC
 
-- Promedio: **1.18**
-- Desviación estándar: **0.063**
+El motor operó durante 9 minutos sin interrupciones, sin pérdida de velocidad ni sobrecalentamiento significativo.
 
-Los resultados muestran una baja variación entre mediciones, indicando que el servomotor mantiene una posición estable y repetible.
+Se observó estabilidad mecánica durante toda la prueba, indicando un funcionamiento continuo confiable en el rango evaluado.
 
-## 4.8 Prueba de funcionamiento continuo del servomotor
 
-Se realizó una prueba de funcionamiento continuo del servomotor durante periodos prolongados para evaluar posibles problemas de calentamiento o pérdida de velocidad.
+## 4.9 Prueba de obstrucción del motor DC
 
-Resultados obtenidos:
+El motor no pudo ser detenido por intervención manual directa.
 
-- El servomotor funcionó correctamente durante los 9 minutos de prueba.
-- No se detectó calentamiento significativo.
-- No se observó disminución de velocidad.
-- El sistema mantuvo estabilidad mecánica durante toda la prueba.
+Materiales como madera, vidrio, metal y cartón detuvieron el sistema, mientras que el plastoformo no generó interferencia significativa.
 
-## 4.9 Prueba de obstrucciones del servomotor
-
-Se realizaron pruebas colocando distintos objetos como obstrucción física al movimiento del servomotor.
-
-Materiales utilizados:
-
-- Dedos
-- Madera
-- Plastoformo
-- Vidrio
-- Metal
-- Cartón
-
-Resultados obtenidos:
-
-- El servomotor logró recuperar rápidamente su posición después de la mayoría de interferencias.
-- Las obstrucciones más rígidas, como metal y vidrio, lograron detener temporalmente el movimiento.
-- Materiales ligeros como cartón y plastoformo no impidieron el funcionamiento normal del motor.
-
-Esto demuestra que el sistema posee una capacidad aceptable de recuperación ante pequeñas obstrucciones mecánicas.
+Los resultados evidencian alta capacidad de fuerza del motor, con resistencia a obstrucciones ligeras y limitación frente a materiales rígidos.
 
 # 4.10 Prueba de velocidad de respuesta del sistema
 
@@ -787,147 +762,123 @@ Resultados observados durante las pruebas:
 
 ## 5.1 Resultados de integración del sistema distribuido
 
-El sistema implementado logró integrar correctamente los módulos ESP32, el sensor RFID-RC522, el servomotor MG90S, AWS IoT Core, MQTT y Alexa mediante comunicación WiFi.
+El sistema implementado logró integrar correctamente los módulos ESP32, el sensor RFID-RC522, el motor DC 12–24V QK1-0908 RN855613, AWS IoT Core, MQTT y Alexa mediante comunicación WiFi.
 
-Se verificó el correcto funcionamiento de:
+Se verificó el funcionamiento correcto de la lectura de tarjetas RFID, el envío de información mediante MQTT hacia AWS IoT Core, la actualización del Device Shadow, la recepción de comandos desde Alexa y el control del motor DC.
 
-- Lectura de tarjetas RFID.
-- Envío de información mediante MQTT hacia AWS IoT Core.
-- Actualización del Device Shadow.
-- Recepción de comandos desde Alexa.
-- Control remoto y automático del servomotor.
-
-El sistema respondió correctamente a los comandos de apertura, cierre y automatización de la "puerta", demostrando una integración funcional entre hardware, nube y asistentes virtuales.
+El sistema ejecutó correctamente las acciones de apertura y cierre de la puerta, evidenciando una integración funcional entre hardware, nube y asistentes virtuales.
 
 ## 5.2 Resultados de exactitud de distancia
 
-Los resultados muestran que el sensor RFID-RC522 posee una distancia de lectura efectiva promedio de aproximadamente **3.68 cm**, manteniendo un comportamiento estable en la mayoría de pruebas realizadas.
+Los resultados muestran que el sensor RFID-RC522 presenta una distancia de lectura efectiva promedio de aproximadamente **3.68 cm**, con valores concentrados entre **3.3 cm y 3.7 cm**.
 
-La mayoría de mediciones se concentraron entre **3.3 cm y 3.7 cm**, lo que evidencia un funcionamiento consistente y preciso para aplicaciones de acceso cercano.
-
-Esto cumple correctamente con el requerimiento funcional relacionado con la lectura de tarjetas RFID.
+Esta variación baja indica un comportamiento estable en el rango de operación esperado para sistemas de control de acceso de corto alcance.
 
 ## 5.3 Resultados de interferencia según materiales
 
-Las pruebas realizadas demostraron que los materiales no metálicos afectan mínimamente el funcionamiento del sensor RFID.
+Las pruebas evidencian que los materiales no metálicos no afectan significativamente la lectura del sensor RFID.
 
-Materiales como cartón, tela y plástico mantuvieron una tasa de detección del 100%, mientras que el aluminio bloqueó completamente la comunicación RFID debido a sus propiedades conductoras.
+Materiales como cartón, tela y plástico presentaron una tasa de detección del 100%, mientras que el aluminio bloqueó completamente la comunicación RFID debido a sus propiedades conductoras.
 
-Esto permitió identificar las limitaciones físicas del sistema y definir recomendaciones para futuras instalaciones.
+Esto confirma la sensibilidad del sistema frente a materiales metálicos.
 
 ## 5.4 Resultados de tiempo de respuesta del sensor
 
-El sensor RFID-RC522 presentó tiempos de lectura prácticamente instantáneos cuando la tarjeta se encontraba dentro del rango operativo.
+El sensor RFID-RC522 presentó tiempos de lectura estables dentro del rango operativo.
 
-El tiempo promedio para dejar de detectar una tarjeta fue de aproximadamente **1.57 segundos**, mostrando una respuesta estable y repetible.
-
-La baja desviación estándar obtenida evidencia consistencia en el comportamiento del sensor.
+El tiempo promedio de liberación de detección de una tarjeta fue de **1.57 segundos**, con una desviación estándar de **0.14 segundos**, lo que indica variabilidad baja en el comportamiento del sensor.
 
 ## 5.5 Resultados de lectura continua
 
-Durante las pruebas de lectura continua el sistema mantuvo estabilidad total durante periodos de hasta 10 minutos sin presentar pérdidas de detección ni desconexiones.
+Durante las pruebas de lectura continua, el sistema mantuvo operación estable durante 10 minutos sin pérdida de detección ni desconexiones.
 
-Esto demuestra que el sistema puede operar de manera continua y confiable durante largos periodos de funcionamiento.
+Esto evidencia que el sistema puede operar de manera continua sin degradación funcional en el periodo evaluado.
 
 ## 5.6 Resultados de interferencia entre tarjetas
 
-Las pruebas demostraron que el sensor puede detectar múltiples tarjetas cercanas, aunque no de forma simultánea estable.
+Las pruebas mostraron que el sensor puede detectar múltiples tarjetas cercanas, pero no mantiene una lectura simultánea estable.
 
-Cuando dos tarjetas se encontraban próximas al sensor, el sistema alternaba constantemente entre ambos identificadores, generando inestabilidad en la lectura.
+Cuando dos tarjetas estuvieron próximas, el sistema alternó entre identificadores, generando variaciones en la lectura. La orientación de las tarjetas también influyó en la estabilidad de la detección.
 
-Además, la orientación de las tarjetas influye significativamente en la detección.
+## 5.7 Resultados de precisión del motor DC
 
-## 5.7 Resultados de tiempo de reacción del servomotor
+Las pruebas realizadas al motor DC mostraron un comportamiento estable en el desplazamiento del sistema.
 
-El servomotor MG90S presentó tiempos de reacción consistentes, con un promedio de **1754.6 ms** para movimientos de 90°.
+Para 1 segundo de activación se obtuvo un promedio de **18.81 ± 0.77**, para 0.8 segundos un promedio de **15.57 ± 0.76**, y para 0.5 segundos un promedio de **9.89 ± 1.01**.
 
-La baja variación entre pruebas demuestra estabilidad mecánica y precisión en los movimientos ejecutados.
+Estos resultados muestran una relación consistente entre el tiempo de activación y el desplazamiento, con baja dispersión en las mediciones.
 
-## 5.8 Resultados de precisión del servomotor
+## 5.8 Resultados de funcionamiento continuo del motor DC
 
-Las pruebas de precisión evidenciaron una variación mínima entre posiciones repetidas, obteniendo desviaciones estándar menores a 0.08 en todas las mediciones realizadas.
+El motor DC operó durante 9 minutos de forma continua sin interrupciones ni variaciones significativas de velocidad.
 
-Esto demuestra que el servomotor mantiene posiciones estables y repetibles, adecuadas para el sistema de apertura de puerta implementado.
+No se observó sobrecalentamiento relevante ni pérdida de rendimiento durante el periodo de prueba, lo que indica estabilidad operativa en condiciones de uso continuo.
 
-## 5.9 Resultados de funcionamiento continuo del servomotor
+## 5.9 Resultados de pruebas de obstrucción del motor DC
 
-El servomotor funcionó correctamente durante periodos prolongados sin presentar sobrecalentamiento ni pérdida de velocidad.
+El motor no pudo ser detenido mediante intervención manual directa.
 
-El sistema mantuvo estabilidad mecánica y eléctrica durante toda la prueba continua realizada.
+Materiales como madera, vidrio, metal y cartón lograron detener el sistema, mientras que el plastoformo no generó interferencia significativa.
 
-## 5.10 Resultados de pruebas de obstrucción del servomotor
+Estos resultados muestran que el sistema puede superar interferencias ligeras, pero presenta limitaciones frente a materiales de alta rigidez.
 
-El servomotor logró recuperarse correctamente ante la mayoría de obstrucciones mecánicas evaluadas.
+## 5.10 Resultados de prueba de velocidad de respuesta
 
-Los materiales más rígidos consiguieron detener temporalmente el motor, mientras que materiales ligeros no afectaron significativamente el movimiento.
+El sistema presentó un tiempo promedio de respuesta de **3.44 segundos**, manteniéndose por debajo del límite establecido de 5 segundos.
 
-Esto demuestra una adecuada capacidad de recuperación del sistema ante pequeñas interferencias físicas.
+La mayoría de respuestas se concentraron entre **3 y 4 segundos**, lo que indica un comportamiento estable en la comunicación entre Alexa, AWS IoT Core, MQTT y el ESP32.
 
-# 5.11 Resultados de prueba de velocidad de respuesta
+## 5.11 Resultados del flujo de autenticación RFID
 
-Los resultados obtenidos muestran que el sistema mantiene tiempos de respuesta estables y adecuados para aplicaciones IoT en tiempo real.
+El sistema diferenció correctamente entre tarjetas autorizadas y no autorizadas.
 
-El sistema presentó un tiempo promedio de respuesta de **3.44 segundos**, manteniéndose dentro del límite establecido de 5 segundos definido en los requerimientos no funcionales.
+Las tarjetas registradas activaron correctamente la actualización del Device Shadow, la apertura de la puerta y el registro de eventos en la base de datos.
 
-La mayoría de respuestas se mantuvieron entre **3 y 4 segundos**, demostrando estabilidad en la comunicación entre Alexa, AWS IoT Core, MQTT y el ESP32.
+Las tarjetas no registradas fueron detectadas, pero no generaron acciones en el sistema, garantizando el control de acceso.
 
-# 5.12 Resultados de flujo completo de autenticación RFID
+## 5.12 Resultados de comandos de Alexa y sincronización con AWS
 
-Las pruebas demostraron que el sistema diferencia correctamente entre tarjetas autorizadas y no autorizadas.
+El sistema integró correctamente Alexa con AWS IoT Core para el control de la puerta y la gestión de eventos RFID.
 
-Las tarjetas registradas lograron:
+Los comandos de apertura y cierre funcionaron correctamente, sincronizando el Device Shadow y activando el motor DC.
 
-- Actualizar correctamente el Device Shadow.
-- Activar la apertura de la puerta.
-- Registrar eventos en la base de datos.
-
-Por otro lado, las tarjetas no registradas fueron detectadas por el sistema, pero no lograron abrir la puerta ni modificar el estado del sistema, garantizando un control de acceso seguro.
-
-# 5.13 Resultados de comandos de Alexa y sincronización con AWS
-
-Los resultados muestran que el sistema logró integrar correctamente Alexa con AWS IoT Core para el control remoto de la puerta y la gestión de tarjetas RFID.
-
-Las pruebas evidenciaron que los comandos principales de control físico, como apertura y cierre de puerta, funcionaron correctamente tanto a nivel de software como de hardware, logrando sincronizar el Device Shadow y activar el servomotor.
-
-Asimismo, los comandos relacionados con la gestión de RFID demostraron que el sistema puede almacenar y modificar información en la base de datos correctamente.
-
-Alexa logró reconocer correctamente todos los comandos enviados durante las pruebas, demostrando estabilidad en la comunicación con AWS IoT Core mediante MQTT.
+La comunicación mediante MQTT se mantuvo estable durante las pruebas, sin pérdidas de mensajes relevantes.
 
 # 6. Conclusiones
 
-1. El sistema logró integrar exitosamente el sensor RFID-RC522, el servomotor MG90S, AWS IoT Core, MQTT y Alexa, permitiendo controlar la apertura y cierre de la puerta tanto de manera automática como mediante comandos de voz. Esto demuestra el correcto funcionamiento de la arquitectura IoT implementada.
+1. El sistema integró correctamente el sensor RFID-RC522, el motor DC QK1-0908 RN855613, AWS IoT Core, MQTT y Alexa, permitiendo el control de la puerta de forma local y remota.
 
-2. Las pruebas de exactitud mostraron que el sensor RFID-RC522 posee una distancia efectiva promedio de lectura de **3.68 cm**, manteniendo la mayoría de mediciones entre **3.3 cm y 3.7 cm**, lo que evidencia un comportamiento estable y adecuado para aplicaciones de control de acceso de corto alcance.
+2. El sensor RFID-RC522 presentó una distancia de lectura promedio de **3.68 cm**, con variación entre **3.3 cm y 3.7 cm**, mostrando un comportamiento estable dentro de su rango operativo.
 
-3. El sensor presentó tiempos de respuesta muy rápidos, ya que la detección de tarjetas fue prácticamente inmediata dentro del rango operativo. Además, el tiempo promedio de “olvido” registrado fue de **1.57 segundos**, con una desviación estándar de apenas **0.14 segundos**, indicando consistencia en el funcionamiento.
+3. El tiempo de respuesta del sensor RFID fue de **1.57 segundos en promedio**, con una desviación estándar de **0.14 segundos**, lo que indica un comportamiento consistente dentro del sistema.
 
-4. Las pruebas de interferencia demostraron que materiales no metálicos como cartón, tela y plástico permiten una detección correcta en el **100% de las pruebas realizadas**, mientras que el aluminio bloqueó completamente la comunicación RFID, evidenciando la sensibilidad del sistema frente a materiales conductores.
+4. El sistema RFID mostró sensibilidad a materiales metálicos, especialmente aluminio, el cual bloqueó completamente la lectura, mientras que materiales no metálicos no afectaron su funcionamiento.
 
-5. El servomotor MG90S mostró un comportamiento estable y preciso, obteniendo un tiempo promedio de **1754.6 ms** para movimientos de 90°, además de mantener funcionamiento continuo durante varios minutos sin sobrecalentamiento ni pérdida de velocidad, confirmando su confiabilidad para aplicaciones automatizadas.
+5. El motor DC QK1-0908 RN855613 mostró un comportamiento estable, con desplazamientos promedio de **18.81, 15.57 y 9.89 unidades** según el tiempo de activación, evidenciando relación proporcional entre tiempo y movimiento.
 
-6. La integración entre Alexa, AWS IoT Core, MQTT y el ESP32 permitió obtener tiempos de respuesta eficientes y consistentes. El sistema logró ejecutar acciones físicas en el servomotor en un promedio de **3.44 segundos**, cumpliendo satisfactoriamente el requerimiento no funcional de mantener una latencia menor a 5 segundos.
+6. El sistema mantuvo tiempos de respuesta promedio de **3.44 segundos**, cumpliendo el requisito de latencia menor a 5 segundos para la interacción entre nube, ESP32 y actuadores.
 
-7. El sistema logró validar correctamente las tarjetas RFID autorizadas y bloquear aquellas que no se encontraban registradas. Además, el flujo completo de comunicación entre sensores, MQTT, AWS IoT Core y la base de datos funcionó correctamente durante todas las pruebas realizadas.
+7. El sistema distinguió correctamente entre tarjetas autorizadas y no autorizadas, ejecutando acciones únicamente en los casos válidos.
 
-8. El sistema logró integrar exitosamente Alexa con AWS IoT Core para el control remoto de la puerta y la gestión de tarjetas RFID. Los comandos principales de apertura y cierre funcionaron correctamente, mientras que algunos comandos informativos y de automatización todavía requieren mejoras para ampliar las funcionalidades del sistema.
+8. La integración con Alexa y AWS IoT Core permitió el control remoto de la puerta de forma estable mediante MQTT, manteniendo sincronización adecuada del estado del sistema.
 
 # 7. Recomendaciones
 
-1. Evitar el uso de materiales metálicos, especialmente aluminio, cerca del sensor RFID-RC522, ya que durante las pruebas este material provocó una tasa de detección del **0%** y generó interferencias temporales en el funcionamiento del sistema.
+1. Evitar el uso de materiales metálicos cerca del sensor RFID-RC522 debido a su efecto de bloqueo total en la comunicación.
 
-2. Implementar mecanismos de filtrado o validación de lectura para evitar conflictos cuando múltiples tarjetas RFID se encuentren cerca del sensor, debido a que el sistema alterna rápidamente entre identificadores y genera lecturas inestables.
+2. Implementar filtrado de lecturas RFID para evitar conflictos cuando múltiples tarjetas estén simultáneamente cerca del lector.
 
-3. Incorporar una fuente de alimentación externa y regulada para el servomotor MG90S en futuras versiones del proyecto, con el objetivo de garantizar mayor estabilidad eléctrica y reducir posibles caídas de tensión durante movimientos continuos.
+3. Utilizar una fuente de alimentación externa regulada para el motor DC, con el fin de evitar variaciones de voltaje durante operación continua.
 
-4. Añadir sensores complementarios, como sensores ultrasónicos o infrarrojos, para mejorar la automatización del sistema y aumentar la seguridad en la detección de presencia o movimiento cerca de la puerta.
+4. Incorporar sensores adicionales (como ultrasonido o infrarrojo) para mejorar la detección de obstáculos y aumentar la seguridad del sistema.
 
-5. Realizar pruebas de funcionamiento continuo durante periodos más prolongados y bajo distintas condiciones ambientales, con el fin de evaluar el comportamiento del sistema frente a variaciones de temperatura, humedad y uso intensivo a largo plazo.
+5. Realizar pruebas de funcionamiento continuo en periodos más largos y bajo condiciones ambientales variables para evaluar la robustez del sistema.
 
-6. Optimizar la estructura de la base de datos en DynamoDB eliminando el almacenamiento simultáneo de `thing_name` y `device_id`, debido a que ambos representan la misma entidad y generan redundancia innecesaria en la información almacenada.
+6. Optimizar la estructura de la base de datos en DynamoDB eliminando redundancias entre `thing_name` y `device_id`.
 
-7. Mejorar la función Lambda asociada a la lógica del IoT Rule para que pueda detectar cuando un comando enviado ha sido completado exitosamente y actualizar su estado correspondiente, evitando que los registros permanezcan indefinidamente con estado `"sent"`.
+7. Mejorar la lógica de la función Lambda para actualizar correctamente el estado de los comandos enviados y evitar estados persistentes como `"sent"`.
 
-8. En algunos registros a la base de datos se guarda en esta utilizando un tiempo distinto al de bolivia, pero la placa obtiene la hora de bolivia entonces se tiene que arreglar esas discrepancias
+8. Corregir la sincronización de zona horaria en la base de datos para asegurar consistencia con la hora local de Bolivia.
 
 # 8. Anexos 
 
@@ -938,7 +889,6 @@ Alexa logró reconocer correctamente todos los comandos enviados durante las pru
 <img src="Imagenes/Prueba_Anexo2.jpeg" width="250">
 <img src="Imagenes/Prueba_Anexo3.jpeg" width="250">
 <img src="Imagenes/Prueba_Anexo4.jpeg" width="250">
-<img src="Imagenes/Prueba_Anexo5.jpeg" width="250">
 <img src="Imagenes/Prueba_Anexo6.jpeg" width="250">
 <img src="Imagenes/Prueba_Anexo7.jpeg" width="250">
 <img src="Imagenes/Prueba_Anexo8.jpeg" width="250">
